@@ -1,11 +1,11 @@
 import { TextSplitter } from 'langchain/text_splitter'
 import { omit } from 'lodash'
-import { CheerioWebBaseLoader, WebBaseLoaderParams } from 'langchain/document_loaders/web/cheerio'
+import { CheerioWebBaseLoader, WebBaseLoaderParams } from '@langchain/community/document_loaders/web/cheerio'
 import { test } from 'linkifyjs'
 import { parse } from 'css-what'
-import { webCrawl, xmlScrape } from '../../../src'
 import { SelectorType } from 'cheerio'
-import { ICommonObject, IDocument, INode, INodeData, INodeParams } from '../../../src/Interface'
+import { ICommonObject, INodeOutputsValue, IDocument, INode, INodeData, INodeParams } from '../../../src/Interface'
+import { handleEscapeCharacters, webCrawl, xmlScrape } from '../../../src/utils'
 
 class Cheerio_DocumentLoaders implements INode {
     label: string
@@ -17,11 +17,12 @@ class Cheerio_DocumentLoaders implements INode {
     category: string
     baseClasses: string[]
     inputs: INodeParams[]
+    outputs: INodeOutputsValue[]
 
     constructor() {
         this.label = 'Cheerio Web Scraper'
         this.name = 'cheerioWebScraper'
-        this.version = 1.1
+        this.version = 2.0
         this.type = 'Document'
         this.icon = 'cheerio.svg'
         this.category = 'Document Loaders'
@@ -93,10 +94,24 @@ class Cheerio_DocumentLoaders implements INode {
                 type: 'string',
                 rows: 4,
                 description:
-                    'Each document loader comes with a default set of metadata keys that are extracted from the document. You can use this field to omit some of the default metadata keys. The value should be a list of keys, seperated by comma',
+                    'Each document loader comes with a default set of metadata keys that are extracted from the document. You can use this field to omit some of the default metadata keys. The value should be a list of keys, seperated by comma. Use * to omit all metadata keys execept the ones you specify in the Additional Metadata field',
                 placeholder: 'key1, key2, key3.nestedKey1',
                 optional: true,
                 additionalParams: true
+            }
+        ]
+        this.outputs = [
+            {
+                label: 'Document',
+                name: 'document',
+                description: 'Array of document objects containing metadata and pageContent',
+                baseClasses: [...this.baseClasses, 'json']
+            },
+            {
+                label: 'Text',
+                name: 'text',
+                description: 'Concatenated string from pageContent of documents',
+                baseClasses: ['string', 'json']
             }
         ]
     }
@@ -107,6 +122,7 @@ class Cheerio_DocumentLoaders implements INode {
         const relativeLinksMethod = nodeData.inputs?.relativeLinksMethod as string
         const selectedLinks = nodeData.inputs?.selectedLinks as string[]
         let limit = parseInt(nodeData.inputs?.limit as string)
+        const output = nodeData.outputs?.output as string
 
         const _omitMetadataKeys = nodeData.inputs?.omitMetadataKeys as string
 
@@ -131,16 +147,22 @@ class Cheerio_DocumentLoaders implements INode {
 
         async function cheerioLoader(url: string): Promise<any> {
             try {
-                let docs = []
+                let docs: IDocument[] = []
+                if (url.endsWith('.pdf')) {
+                    if (process.env.DEBUG === 'true') options.logger.info(`CheerioWebBaseLoader does not support PDF files: ${url}`)
+                    return docs
+                }
                 const loader = new CheerioWebBaseLoader(url, params)
                 if (textSplitter) {
-                    docs = await loader.loadAndSplit(textSplitter)
+                    docs = await loader.load()
+                    docs = await textSplitter.splitDocuments(docs)
                 } else {
                     docs = await loader.load()
                 }
                 return docs
             } catch (err) {
                 if (process.env.DEBUG === 'true') options.logger.error(`error in CheerioWebBaseLoader: ${err.message}, on page: ${url}`)
+                return []
             }
         }
 
@@ -178,27 +200,43 @@ class Cheerio_DocumentLoaders implements INode {
             const parsedMetadata = typeof metadata === 'object' ? metadata : JSON.parse(metadata)
             docs = docs.map((doc) => ({
                 ...doc,
-                metadata: omit(
-                    {
-                        ...doc.metadata,
-                        ...parsedMetadata
-                    },
-                    omitMetadataKeys
-                )
+                metadata:
+                    _omitMetadataKeys === '*'
+                        ? {
+                              ...parsedMetadata
+                          }
+                        : omit(
+                              {
+                                  ...doc.metadata,
+                                  ...parsedMetadata
+                              },
+                              omitMetadataKeys
+                          )
             }))
         } else {
             docs = docs.map((doc) => ({
                 ...doc,
-                metadata: omit(
-                    {
-                        ...doc.metadata
-                    },
-                    omitMetadataKeys
-                )
+                metadata:
+                    _omitMetadataKeys === '*'
+                        ? {}
+                        : omit(
+                              {
+                                  ...doc.metadata
+                              },
+                              omitMetadataKeys
+                          )
             }))
         }
 
-        return docs
+        if (output === 'document') {
+            return docs
+        } else {
+            let finaltext = ''
+            for (const doc of docs) {
+                finaltext += `${doc.pageContent}\n`
+            }
+            return handleEscapeCharacters(finaltext, false)
+        }
     }
 }
 

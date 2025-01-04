@@ -1,14 +1,14 @@
 import { omit } from 'lodash'
-import { ICommonObject, INode, INodeData, INodeOptionsValue, INodeParams } from '../../../src/Interface'
-import { S3Loader } from 'langchain/document_loaders/web/s3'
+import { ICommonObject, INode, INodeData, INodeOptionsValue, INodeOutputsValue, INodeParams } from '../../../src/Interface'
+import { S3Loader } from '@langchain/community/document_loaders/web/s3'
 import {
     UnstructuredLoader,
     UnstructuredLoaderOptions,
     UnstructuredLoaderStrategy,
     SkipInferTableTypes,
     HiResModelName
-} from 'langchain/document_loaders/fs/unstructured'
-import { getCredentialData, getCredentialParam } from '../../../src/utils'
+} from '@langchain/community/document_loaders/fs/unstructured'
+import { getCredentialData, getCredentialParam, handleEscapeCharacters } from '../../../src/utils'
 import { S3Client, GetObjectCommand, S3ClientConfig } from '@aws-sdk/client-s3'
 import { getRegions, MODEL_TYPE } from '../../../src/modelLoader'
 import { Readable } from 'node:stream'
@@ -27,11 +27,12 @@ class S3_DocumentLoaders implements INode {
     baseClasses: string[]
     credential: INodeParams
     inputs?: INodeParams[]
+    outputs: INodeOutputsValue[]
 
     constructor() {
         this.label = 'S3'
         this.name = 'S3'
-        this.version = 3.0
+        this.version = 4.0
         this.type = 'Document'
         this.icon = 's3.svg'
         this.category = 'Document Loaders'
@@ -70,7 +71,8 @@ class S3_DocumentLoaders implements INode {
                 description:
                     'Your Unstructured.io URL. Read <a target="_blank" href="https://unstructured-io.github.io/unstructured/introduction.html#getting-started">more</a> on how to get started',
                 type: 'string',
-                default: 'http://localhost:8000/general/v0/general'
+                placeholder: process.env.UNSTRUCTURED_API_URL || 'http://localhost:8000/general/v0/general',
+                optional: !!process.env.UNSTRUCTURED_API_URL
             },
             {
                 label: 'Unstructured API KEY',
@@ -427,10 +429,24 @@ class S3_DocumentLoaders implements INode {
                 type: 'string',
                 rows: 4,
                 description:
-                    'Each document loader comes with a default set of metadata keys that are extracted from the document. You can use this field to omit some of the default metadata keys. The value should be a list of keys, seperated by comma',
+                    'Each document loader comes with a default set of metadata keys that are extracted from the document. You can use this field to omit some of the default metadata keys. The value should be a list of keys, seperated by comma. Use * to omit all metadata keys execept the ones you specify in the Additional Metadata field',
                 placeholder: 'key1, key2, key3.nestedKey1',
                 optional: true,
                 additionalParams: true
+            }
+        ]
+        this.outputs = [
+            {
+                label: 'Document',
+                name: 'document',
+                description: 'Array of document objects containing metadata and pageContent',
+                baseClasses: [...this.baseClasses, 'json']
+            },
+            {
+                label: 'Text',
+                name: 'text',
+                description: 'Concatenated string from pageContent of documents',
+                baseClasses: ['string', 'json']
             }
         ]
     }
@@ -465,6 +481,7 @@ class S3_DocumentLoaders implements INode {
         const newAfterNChars = nodeData.inputs?.newAfterNChars as number
         const maxCharacters = nodeData.inputs?.maxCharacters as number
         const _omitMetadataKeys = nodeData.inputs?.omitMetadataKeys as string
+        const output = nodeData.outputs?.output as string
 
         let omitMetadataKeys: string[] = []
         if (_omitMetadataKeys) {
@@ -561,31 +578,47 @@ class S3_DocumentLoaders implements INode {
                     const parsedMetadata = typeof metadata === 'object' ? metadata : JSON.parse(metadata)
                     docs = docs.map((doc) => ({
                         ...doc,
-                        metadata: omit(
-                            {
-                                ...doc.metadata,
-                                ...parsedMetadata,
-                                [sourceIdKey]: doc.metadata[sourceIdKey] || sourceIdKey
-                            },
-                            omitMetadataKeys
-                        )
+                        metadata:
+                            _omitMetadataKeys === '*'
+                                ? {
+                                      ...parsedMetadata
+                                  }
+                                : omit(
+                                      {
+                                          ...doc.metadata,
+                                          ...parsedMetadata,
+                                          [sourceIdKey]: doc.metadata[sourceIdKey] || sourceIdKey
+                                      },
+                                      omitMetadataKeys
+                                  )
                     }))
                 } else {
                     docs = docs.map((doc) => ({
                         ...doc,
-                        metadata: omit(
-                            {
-                                ...doc.metadata,
-                                [sourceIdKey]: doc.metadata[sourceIdKey] || sourceIdKey
-                            },
-                            omitMetadataKeys
-                        )
+                        metadata:
+                            _omitMetadataKeys === '*'
+                                ? {}
+                                : omit(
+                                      {
+                                          ...doc.metadata,
+                                          [sourceIdKey]: doc.metadata[sourceIdKey] || sourceIdKey
+                                      },
+                                      omitMetadataKeys
+                                  )
                     }))
                 }
 
                 fsDefault.rmSync(path.dirname(filePath), { recursive: true })
 
-                return docs
+                if (output === 'document') {
+                    return docs
+                } else {
+                    let finaltext = ''
+                    for (const doc of docs) {
+                        finaltext += `${doc.pageContent}\n`
+                    }
+                    return handleEscapeCharacters(finaltext, false)
+                }
             } catch {
                 fsDefault.rmSync(path.dirname(filePath), { recursive: true })
                 throw new Error(`Failed to load file ${filePath} using unstructured loader.`)

@@ -7,8 +7,9 @@ import {
     IconMessage,
     IconDatabaseExport,
     IconAdjustmentsHorizontal,
-    IconUsers
-} from '@tabler/icons'
+    IconUsers,
+    IconTemplate
+} from '@tabler/icons-react'
 
 // constant
 const icons = {
@@ -19,7 +20,8 @@ const icons = {
     IconMessage,
     IconDatabaseExport,
     IconAdjustmentsHorizontal,
-    IconUsers
+    IconUsers,
+    IconTemplate
 }
 
 // ==============================|| SETTINGS MENU ITEMS ||============================== //
@@ -56,6 +58,13 @@ const settings = {
             type: 'item',
             url: '',
             icon: icons.IconAdjustmentsHorizontal
+        },
+        {
+            id: 'saveAsTemplate',
+            title: 'Save As Template',
+            type: 'item',
+            url: '',
+            icon: icons.IconTemplate
         },
         {
             id: 'duplicateChatflow',

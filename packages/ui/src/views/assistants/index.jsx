@@ -7,7 +7,7 @@ import { Box, Stack, Button, Skeleton } from '@mui/material'
 import MainCard from '@/ui-component/cards/MainCard'
 import ItemCard from '@/ui-component/cards/ItemCard'
 import { gridSpacing } from '@/store/constant'
-import ToolEmptySVG from '@/assets/images/tools_empty.svg'
+import AssistantEmptySVG from '@/assets/images/assistant_empty.svg'
 import { StyledButton } from '@/ui-component/button/StyledButton'
 import AssistantDialog from './AssistantDialog'
 import LoadAssistantDialog from './LoadAssistantDialog'
@@ -19,7 +19,7 @@ import assistantsApi from '@/api/assistants'
 import useApi from '@/hooks/useApi'
 
 // icons
-import { IconPlus, IconFileUpload } from '@tabler/icons'
+import { IconPlus, IconFileUpload } from '@tabler/icons-react'
 import ViewHeader from '@/layout/MainLayout/ViewHeader'
 import ErrorBoundary from '@/ErrorBoundary'
 
@@ -41,6 +41,11 @@ const Assistants = () => {
         }
         setLoadDialogProps(dialogProp)
         setShowLoadDialog(true)
+    }
+
+    const [search, setSearch] = useState('')
+    const onSearchChange = (event) => {
+        setSearch(event.target.value)
     }
 
     const onAssistantSelected = (selectedOpenAIAssistantId, credential) => {
@@ -78,6 +83,11 @@ const Assistants = () => {
         getAllAssistantsApi.request()
     }
 
+    function filterAssistants(data) {
+        const parsedData = JSON.parse(data.details)
+        return parsedData && parsedData.name && parsedData.name.toLowerCase().indexOf(search.toLowerCase()) > -1
+    }
+
     useEffect(() => {
         getAllAssistantsApi.request()
 
@@ -101,7 +111,12 @@ const Assistants = () => {
                     <ErrorBoundary error={error} />
                 ) : (
                     <Stack flexDirection='column' sx={{ gap: 3 }}>
-                        <ViewHeader title='OpenAI Assistants'>
+                        <ViewHeader
+                            onSearchChange={onSearchChange}
+                            search={true}
+                            searchPlaceholder='Search Assistants'
+                            title='OpenAI Assistants'
+                        >
                             <Button
                                 variant='outlined'
                                 onClick={loadExisting}
@@ -128,7 +143,7 @@ const Assistants = () => {
                         ) : (
                             <Box display='grid' gridTemplateColumns='repeat(3, 1fr)' gap={gridSpacing}>
                                 {getAllAssistantsApi.data &&
-                                    getAllAssistantsApi.data.map((data, index) => (
+                                    getAllAssistantsApi.data?.filter(filterAssistants).map((data, index) => (
                                         <ItemCard
                                             data={{
                                                 name: JSON.parse(data.details)?.name,
@@ -145,9 +160,9 @@ const Assistants = () => {
                             <Stack sx={{ alignItems: 'center', justifyContent: 'center' }} flexDirection='column'>
                                 <Box sx={{ p: 2, height: 'auto' }}>
                                     <img
-                                        style={{ objectFit: 'cover', height: '16vh', width: 'auto' }}
-                                        src={ToolEmptySVG}
-                                        alt='ToolEmptySVG'
+                                        style={{ objectFit: 'cover', height: '20vh', width: 'auto' }}
+                                        src={AssistantEmptySVG}
+                                        alt='AssistantEmptySVG'
                                     />
                                 </Box>
                                 <div>No Assistants Added Yet</div>

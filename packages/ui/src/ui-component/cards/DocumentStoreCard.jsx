@@ -4,7 +4,7 @@ import { useSelector } from 'react-redux'
 // material-ui
 import { styled } from '@mui/material/styles'
 import { Box, Grid, Typography, useTheme } from '@mui/material'
-import { IconVectorBezier2, IconLanguage, IconScissors } from '@tabler/icons'
+import { IconVectorBezier2, IconLanguage, IconScissors } from '@tabler/icons-react'
 
 // project imports
 import MainCard from '@/ui-component/cards/MainCard'
@@ -60,7 +60,8 @@ const DocumentStoreCard = ({ data, images, onClick }) => {
                                     WebkitBoxOrient: 'vertical',
                                     textOverflow: 'ellipsis',
                                     overflow: 'hidden',
-                                    flex: 1
+                                    flex: 1,
+                                    mr: 1
                                 }}
                             >
                                 {data.name}

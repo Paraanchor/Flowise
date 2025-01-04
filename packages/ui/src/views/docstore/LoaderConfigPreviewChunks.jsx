@@ -11,7 +11,7 @@ import useApi from '@/hooks/useApi'
 // Material-UI
 import { Skeleton, Toolbar, Box, Button, Card, CardContent, Grid, OutlinedInput, Stack, Typography } from '@mui/material'
 import { useTheme, styled } from '@mui/material/styles'
-import { IconScissors, IconArrowLeft, IconDatabaseImport, IconBook, IconX, IconEye } from '@tabler/icons'
+import { IconScissors, IconArrowLeft, IconDatabaseImport, IconBook, IconX, IconEye } from '@tabler/icons-react'
 
 // Project import
 import MainCard from '@/ui-component/cards/MainCard'
@@ -186,9 +186,9 @@ const LoaderConfigPreviewChunks = () => {
             setLoading(true)
             const config = prepareConfig()
             try {
-                const processResp = await documentStoreApi.processChunks(config)
+                const saveResp = await documentStoreApi.saveProcessingLoader(config)
                 setLoading(false)
-                if (processResp.data) {
+                if (saveResp.data) {
                     enqueueSnackbar({
                         message: 'File submitted for processing. Redirecting to Document Store..',
                         options: {
@@ -201,6 +201,8 @@ const LoaderConfigPreviewChunks = () => {
                             )
                         }
                     })
+                    // don't wait for the process to complete, redirect to document store
+                    documentStoreApi.processLoader(config, saveResp.data?.id)
                     navigate('/document-stores/' + storeId)
                 }
             } catch (error) {
@@ -279,7 +281,6 @@ const LoaderConfigPreviewChunks = () => {
     useEffect(() => {
         if (getNodeDetailsApi.data) {
             const nodeData = cloneDeep(initNode(getNodeDetailsApi.data, uuidv4()))
-
             // If this is a document store edit config, set the existing input values
             if (existingLoaderFromDocStoreTable && existingLoaderFromDocStoreTable.loaderConfig) {
                 nodeData.inputs = existingLoaderFromDocStoreTable.loaderConfig

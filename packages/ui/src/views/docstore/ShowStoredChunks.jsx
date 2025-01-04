@@ -7,7 +7,7 @@ import ReactJson from 'flowise-react-json-view'
 import { Box, Card, Button, Grid, IconButton, Stack, Typography } from '@mui/material'
 import { useTheme, styled } from '@mui/material/styles'
 import CardContent from '@mui/material/CardContent'
-import { IconLanguage, IconX, IconChevronLeft, IconChevronRight } from '@tabler/icons'
+import { IconLanguage, IconX, IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
 import chunks_emptySVG from '@/assets/images/chunks_empty.svg'
 
 // project imports
@@ -310,7 +310,7 @@ const ShowStoredChunks = () => {
                             </div>
                             <div style={{ marginRight: 20, display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                                 <IconLanguage style={{ marginRight: 10 }} size={20} />
-                                {getChunksApi.data?.file?.totalChars?.toLocaleString()} characters
+                                {getChunksApi.data?.characters?.toLocaleString()} characters
                             </div>
                         </div>
                     </div>
